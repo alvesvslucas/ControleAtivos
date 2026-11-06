@@ -29,9 +29,15 @@ php -S 127.0.0.1:8080 -t .
 
 4. Abra `http://127.0.0.1:8080/login.html`. O login depende dos usuários existentes no banco; este documento não fornece credenciais.
 
-## Estado do projeto
+## Verificações e limites
 
-A execução e a instalação do banco não foram validadas nesta revisão documental. O login legado em `Home.php` contém SQL interpolado e comparação de senha em Base64; esses pontos precisam ser corrigidos antes de disponibilizar uma demonstração com dados ou acesso externo.
+As três consultas do login (usuário, registro de acesso e perfil) usam parâmetros SQL. O workflow [Regressão do login](.github/workflows/login-regression.yml) exercita o fluxo de `Home.php` em PHP 8.2 e MySQL 8 descartável, com tabelas temporárias e dependências de teste. A regressão cobre seis contas legítimas, onze entradas recusadas e os três perfis, incluindo aspas, Unicode, senha incorreta, entradas malformadas e tentativas de injeção SQL.
+
+A [regressão na branch principal](https://github.com/alvesvslucas/ControleAtivos/actions/runs/42284679704) passou com esses controles; a [verificação de sintaxe](https://github.com/alvesvslucas/ControleAtivos/actions/runs/42284679715) passou em 22 arquivos PHP reais.
+
+O workflow [Sintaxe PHP](.github/workflows/php-syntax.yml) verifica os arquivos PHP sem executar as páginas ou conectar ao banco da aplicação.
+
+As senhas continuam no formato legado Base64; a migração para hashing seguro permanece pendente e precisa ser concluída antes de disponibilizar uma demonstração com dados reais ou acesso externo. A instalação do banco, os demais módulos e o ambiente de produção ainda exigem validação própria. Esta revisão não constitui auditoria completa e não implantou o sistema no servidor de produção.
 
 ## Créditos
 
