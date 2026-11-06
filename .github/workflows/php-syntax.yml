@@ -17,6 +17,36 @@ jobs:
       - name: Conferir sintaxe sem executar páginas ou conectar banco
         shell: bash
         run: |
+          set -euo pipefail
+          lint_file() {
+            php -l -f "$1"
+          }
+          fixture_dir=$(mktemp -d "$RUNNER_TEMP/php-lint.XXXXXX")
+          valid_fixture="$fixture_dir/valid.php"
+          invalid_fixture="$fixture_dir/invalid.php"
+          printf '%s\n' '<?php $value = 1;' > "$valid_fixture"
+          printf '%s\n' '<?php function broken( {' > "$invalid_fixture"
+          lint_file "$valid_fixture" > "$fixture_dir/valid.log" 2>&1
+          if ! grep -F -- "$valid_fixture" "$fixture_dir/valid.log"; then
+            echo "O lint não identificou o arquivo válido de controle." >&2
+            exit 1
+          fi
+          if lint_file "$invalid_fixture" > "$fixture_dir/invalid.log" 2>&1; then
+            echo "O lint aceitou o arquivo PHP inválido de controle." >&2
+            exit 1
+          fi
+          if ! grep -F -- "$invalid_fixture" "$fixture_dir/invalid.log"; then
+            echo "A falha não identifica o arquivo inválido de controle." >&2
+            exit 1
+          fi
+          echo "Controle negativo rejeitado pelo mesmo harness de lint."
+          count=0
           while IFS= read -r -d '' file; do
-            php -l "$file"
+            lint_file "$file"
+            count=$((count + 1))
           done < <(find . -type f -name '*.php' -not -path './vendor/*' -print0)
+          if (( count == 0 )); then
+            echo "Nenhum arquivo PHP real foi encontrado." >&2
+            exit 1
+          fi
+          printf 'Arquivos PHP reais verificados: %d\n' "$count"
