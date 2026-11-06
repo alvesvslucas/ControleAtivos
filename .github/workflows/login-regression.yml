@@ -1,0 +1,66 @@
+name: Regressão do login
+on:
+  push:
+    paths:
+      - 'Home.php'
+      - 'control/login_queries.php'
+      - 'tests/login_queries_test.php'
+      - '.github/workflows/login-regression.yml'
+  pull_request:
+    paths:
+      - 'Home.php'
+      - 'control/login_queries.php'
+      - 'tests/login_queries_test.php'
+      - '.github/workflows/login-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  login:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: fixture-root-password
+          MYSQL_DATABASE: controle_ativos_test
+          MYSQL_USER: fixture
+          MYSQL_PASSWORD: fixture-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h127.0.0.1 -ufixture -pfixture-password --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Preparar fonte original para o controle negativo
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show 841da02e0c261c092f689db24415279a9a17562b:Home.php > "$RUNNER_TEMP/controle-login-baseline.php"
+      - name: Validar fonte e fluxo real com PHP 8.2 e MySQL descartável
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            -v "$RUNNER_TEMP/controle-login-baseline.php:/baseline/Home.php:ro" \
+            -w /workspace \
+            -e LOGIN_TEST_HOST=127.0.0.1 \
+            -e LOGIN_TEST_DB=controle_ativos_test \
+            -e LOGIN_TEST_USER=fixture \
+            -e LOGIN_TEST_PASSWORD=fixture-password \
+            -e LOGIN_BASELINE_PATH=/baseline/Home.php \
+            php:8.2-cli sh -eu -c '
+              docker-php-ext-install mysqli
+              php -l -f Home.php
+              php -l -f control/login_queries.php
+              php -l -f tests/login_queries_test.php
+              php -f tests/login_queries_test.php
+            '

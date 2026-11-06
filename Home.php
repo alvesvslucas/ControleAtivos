@@ -21,11 +21,11 @@
 		$dt = new DateTime("now", new DateTimeZone($tz)); //first argument "must" be a string
 		$dt->setTimestamp($timestamp); //adjust the object to correct timestamp
 		include "control/conecta_mysql.inc";
-		$user=$_POST["nome"];
-		$pass=$_POST["senha"];		
-		$res = mysqli_query($conexao,"select * from LOGIN WHERE cd_login ='$user'");		
-		$row = mysqli_fetch_array($res);		
-		$linha= mysqli_num_rows($res);
+		require_once __DIR__ . "/control/login_queries.php";
+		$user = isset($_POST["nome"]) && is_string($_POST["nome"]) ? $_POST["nome"] : null;
+		$pass = isset($_POST["senha"]) && is_string($_POST["senha"]) ? $_POST["senha"] : null;
+		$row = $user !== null && $pass !== null ? controleAtivosFindLogin($conexao, $user) : false;
+		$linha = $row !== false ? 1 : 0;
 		if($linha != 0){
 				if(base64_encode($pass) != $row['ds_senha']){
 				echo"
@@ -38,10 +38,8 @@
 				";
 			}else{
 				session_start();
-				mysqli_query($conexao,"INSERT INTO acesso(cd_login_acesso,dt_acesso)VALUES('$user','".$dt->format('d.m.Y, H:i:s')."')");
-				$sql= "select LOGIN.*, DAODS.* from LOGIN inner join DAODS on '$user' = DAODS.cd_login";
-				$query = mysqli_query($conexao,$sql);
-				$DAODS = mysqli_fetch_array($query);
+				controleAtivosRecordAccess($conexao, $user, $dt->format('d.m.Y, H:i:s'));
+				$DAODS = controleAtivosFindProfile($conexao, $user);
 				
 				echo "
 					<nav class='navbar navbar-inverse navbar-fixed-top'>
